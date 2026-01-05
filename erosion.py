@@ -4,7 +4,7 @@ import cv2 as cv
 import numpy as np
 
 # Open and read the FITS file
-fits_file = './examples/HorseHead.fits'
+fits_file = './examples/test_M31_linear.fits'
 hdul = fits.open(fits_file)
 
 # Display information about the file
@@ -49,7 +49,7 @@ kernel = np.ones((3,3), np.uint8)
 eroded_image = cv.erode(image, kernel, iterations=1)
 
 # Save the eroded image 
-cv.imwrite('./results/eroded.png', eroded_image)
+cv.imwrite('./results/eroded_test.png', eroded_image)
 
 # Close the file
 hdul.close()
