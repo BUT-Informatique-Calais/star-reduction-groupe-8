@@ -41,12 +41,14 @@ else:
     # Convert to uint8 for OpenCV
     image = ((data - data.min()) / (data.max() - data.min()) * 255).astype('uint8')
 
-
-
 # Define a kernel for erosion
 kernel = np.ones((3,3), np.uint8)
+
+#Use bgr instead of rgb
+image_bgr = cv.cvtColor(image, cv.COLOR_RGB2BGR)
+
 # Perform erosion
-eroded_image = cv.erode(image, kernel, iterations=1)
+eroded_image = cv.erode(image_bgr, kernel, iterations=1)
 
 # Save the eroded image 
 cv.imwrite('./results/eroded_test.png', eroded_image)
