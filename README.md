@@ -31,7 +31,7 @@ pip install [package-name]
 
 ### Command Line
 ```bash
-python main.py [arguments]
+python3 main.py [arguments]
 ```
 
 ## Requirements
@@ -46,4 +46,26 @@ Example files are located in the `examples/` directory. You can run the scripts 
 - Example 3 : `examples/test_M31_raw.fits` (Color FITS image file for testing)
 
 
+## Launch the applicaton
 
+Make sure to install :
+```bash
+python3 -m pip install PyQt6
+
+sudo apt install -y \
+libxcb-cursor0 \
+libxcb-xinerama0 \
+libxkbcommon-x11-0 \
+libxcb-icccm4 \
+libxcb-image0 \
+libxcb-keysyms1 \
+libxcb-render-util0 \
+libxcb-shape0 \
+libxcb-randr0 \
+libxcb-xkb1ut0 \
+
+pip install astropy
+pip install opencv-python
+pip install numpy
+pip install requests
+```

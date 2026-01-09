@@ -1,12 +1,11 @@
 from astropy.io import fits
-import matplotlib.pyplot as plt
 import cv2 as cv
 import numpy as np
-from photutils.detection import DAOStarFinder
-from astropy.stats import sigma_clipped_stats
 import requests
 import json
 import time
+
+# This code is only here to represent the phase 2 of the sae
 
 #Cle api
 key = "plkcttkosimsbqgm"
@@ -97,10 +96,9 @@ while True:
     response = requests.get(f'http://nova.astrometry.net/api/jobs/{job_id}')
     status = response.json()['status']
     if status == 'success':
-        print("Image identifiée !")
         break
     elif status == 'failure':
-        print("Échec de l'identification")
+        print("Échec of the identification")
         break
     time.sleep(5)
     
