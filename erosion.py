@@ -4,6 +4,12 @@ import cv2 as cv
 import numpy as np
 from photutils.detection import DAOStarFinder
 from astropy.stats import sigma_clipped_stats
+import requests
+import json
+import time
+
+#Cle api
+key = "plkcttkosimsbqgm"
 
 # Open and read the FITS file
 fits_file = './examples/test_M31_linear.fits'
@@ -48,57 +54,96 @@ if data.ndim == 3:
     cv.imwrite('./results/eroded.png', cv.cvtColor(Ierode, cv.COLOR_RGB2BGR))
 else:
     cv.imwrite('./results/eroded.png', Ierode)
-
-# Star detection with DAOStarFinder
-mean, median, std = sigma_clipped_stats(data_gray, sigma=3.0)
-daofind = DAOStarFinder(fwhm=3.0, threshold=5.*std)
-sources = daofind(data_gray - median)
-
-#Create a star mask to identify star regions to reduce
-M = np.zeros(data_gray.shape, dtype=np.float32)
-
-if sources is not None:    
-    # Mark star zones
-    for star in sources:
-        x, y = int(star['xcentroid']), int(star['ycentroid'])
-        cv.circle(M, (x, y), 10, 1.0, -1)
+    
+# API reponse
+response = requests.post('http://nova.astrometry.net/api/login', data={'request-json': json.dumps({"apikey": key})})
+result = response.json()
+if result.get('status') == 'success':
+    session = result['session']
 else:
-    print("No stars detected")
+    raise Exception(f"Échec de connexion: {result}")
 
-# Soften mask edges with Gaussian blur
-M = cv.GaussianBlur(M, (15, 15), 0)
+# Upload picture to API
+data_upload = {'request-json': json.dumps({"session": session})}
 
-# Replace stars with single pixels
-Ifinal = Ierode.copy()
+with open(fits_file, 'rb') as f:
+    reponse = requests.post('http://nova.astrometry.net/api/upload',files={'file': f},data=data_upload)
+result = reponse.json()
+if result.get('status') == 'success':
+    subid = result['subid']
+else:
+    raise Exception("\nÉchec upload")
 
-if sources is not None:
-    for star in sources:
-        x, y = int(star['xcentroid']), int(star['ycentroid'])
+# Creation of the jobs
+job_id = None
+attempts = 20
+
+# Try until the reponse
+for i in range(attempts):
+    time.sleep(3)
+    response = requests.get(f'http://nova.astrometry.net/api/submissions/{subid}')
+    try:
+        submission_data = response.json()
+    except json.JSONDecodeError:
+        continue
+    
+    if 'jobs' in submission_data and len(submission_data['jobs']) > 0:
+        jobs = submission_data['jobs']
+        if jobs[0] is not None:
+            job_id = jobs[0]
+            break    
+
+while True:
+    response = requests.get(f'http://nova.astrometry.net/api/jobs/{job_id}')
+    status = response.json()['status']
+    if status == 'success':
+        print("Image identifiée !")
+        break
+    elif status == 'failure':
+        print("Échec de l'identification")
+        break
+    time.sleep(5)
+    
+#Upload the catalog of stars into a file
+axy_url = f'http://nova.astrometry.net/axy_file/{job_id}'
+response = requests.get(axy_url)
+
+with open('./stars.fits', 'wb') as f:
+    f.write(response.content)
+
+# Read positions
+with fits.open('./stars.fits') as cat_hdul:
+    pixel_data = cat_hdul[1].data
+    
+    # Create the mask of stars
+    stars = []
+    for star in pixel_data:
+        x, y = int(star['X']), int(star['Y'])
+        if 0 <= x < data_gray.shape[1] and 0 <= y < data_gray.shape[0]:
+            stars.append((x, y))
         
-        # Get the star pixel color from the original image
+    # Ifinal
+    Ifinal = Ierode.copy()
+    for x, y in stars:
         if data.ndim == 3:
             star_color = image[y, x]
         else:
             star_color = image[y, x]
         
-        # Create a mask for the star zone
         mask_star = np.zeros(data_gray.shape, dtype=np.uint8)
         cv.circle(mask_star, (x, y), 10, 255, -1)
         
-        # Ifinal
         Ifinal = cv.inpaint(Ifinal, mask_star, 3, cv.INPAINT_TELEA)
         
-        # Put back a single pixel at the center with original color
         if data.ndim == 3:
             Ifinal[y, x] = star_color
         else:
             Ifinal[y, x] = star_color
-
-# Save final image in correct color format
-if data.ndim == 3:
-    cv.imwrite('./results/final.png', cv.cvtColor(Ifinal, cv.COLOR_RGB2BGR))
-else:
-    cv.imwrite('./results/final.png', Ifinal)
-
-# Close the file
+    
+    # Save result
+    if data.ndim == 3:
+        cv.imwrite('./results/final.png', cv.cvtColor(Ifinal, cv.COLOR_RGB2BGR))
+    else:
+        cv.imwrite('./results/final.png', Ifinal)
+    
 hdul.close()
